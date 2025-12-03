@@ -162,29 +162,42 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
     }
   };
 
-  const openAdjustment = (productsInColor: Product[], size: string, type: 'IN' | 'OUT') => {
+  const openAdjustment = (productsInColor: Product[], size: string, type: 'IN' | 'OUT', specificProductId?: string) => {
     if (productsInColor.length === 0) return;
 
-    const relevantCandidates = productsInColor.filter(p => {
-        const isStandardTarget = STANDARD_SIZES.includes(size);
-        const isPlusTarget = PLUS_SIZES.includes(size);
+    let finalCandidates = productsInColor;
+    let defaultProduct: Product | undefined;
 
-        if (p.stocks.hasOwnProperty(size)) return true;
+    // If specific product (reference) was passed (from the new layout), use only that one
+    if (specificProductId) {
+        const p = productsInColor.find(p => p.id === specificProductId);
+        if (p) {
+            finalCandidates = [p];
+            defaultProduct = p;
+        }
+    } else {
+        // Fallback logic
+        const relevantCandidates = productsInColor.filter(p => {
+            const isStandardTarget = STANDARD_SIZES.includes(size);
+            const isPlusTarget = PLUS_SIZES.includes(size);
 
-        const pKeys = Object.keys(p.stocks);
-        const hasStandardKeys = pKeys.some(k => STANDARD_SIZES.includes(k));
-        const hasPlusKeys = pKeys.some(k => PLUS_SIZES.includes(k));
+            if (p.stocks.hasOwnProperty(size)) return true;
 
-        if (isStandardTarget && hasStandardKeys) return true;
-        if (isPlusTarget && hasPlusKeys) return true;
-        
-        return pKeys.length === 0 && productsInColor.length === 1;
-    });
+            const pKeys = Object.keys(p.stocks);
+            const hasStandardKeys = pKeys.some(k => STANDARD_SIZES.includes(k));
+            const hasPlusKeys = pKeys.some(k => PLUS_SIZES.includes(k));
 
-    const finalCandidates = relevantCandidates.length > 0 ? relevantCandidates : productsInColor;
+            if (isStandardTarget && hasStandardKeys) return true;
+            if (isPlusTarget && hasPlusKeys) return true;
+            
+            return pKeys.length === 0 && productsInColor.length === 1;
+        });
+        finalCandidates = relevantCandidates.length > 0 ? relevantCandidates : productsInColor;
+        defaultProduct = finalCandidates.find(p => p.stocks.hasOwnProperty(size));
+        if (!defaultProduct) defaultProduct = finalCandidates[0];
+    }
 
-    let defaultProduct = finalCandidates.find(p => p.stocks.hasOwnProperty(size));
-    if (!defaultProduct) defaultProduct = finalCandidates[0];
+    if (!defaultProduct) return;
 
     setAdjustingItem({ 
         candidates: finalCandidates,
@@ -442,17 +455,11 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                 const first = productsInColor[0];
                 const colorKey = key;
                 
-                const mergedStocks: { [size: string]: number } = {};
                 let totalStockInColor = 0;
+                productsInColor.forEach(p => totalStockInColor += p.totalStock);
 
-                productsInColor.forEach(p => {
-                    totalStockInColor += p.totalStock;
-                    Object.entries(p.stocks).forEach(([size, qty]) => {
-                        mergedStocks[size] = (mergedStocks[size] || 0) + qty;
-                    });
-                });
-
-                if (isAdmin && hideZeroStock && totalStockInColor === 0) {
+                // CONDITIONAL RENDERING: HIDE BLOCK IF NO STOCK (CATALOG MODE)
+                if (!isAdmin && totalStockInColor === 0) {
                     return null;
                 }
 
@@ -509,6 +516,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
 
                 return (
                     <div key={key} className="bg-white rounded-xl border p-4 shadow-sm ring-1 ring-gray-100">
+                        {/* Header do Card de Cor */}
                         <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4 border-b pb-3 border-dashed border-gray-100">
                             
                             {editingColorKey === colorKey ? (
@@ -556,87 +564,120 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                                 </div>
                             )}
 
-                            {(showRefDetailsForColor === colorKey || !isAdmin) && (
-                                <div className={`flex flex-col items-end gap-2 w-full sm:w-auto ${!isAdmin ? 'hidden' : ''}`}>
-                                    {showRefDetailsForColor === colorKey && (
-                                        <div className="flex flex-col gap-1 w-full sm:w-auto animate-in slide-in-from-top-2 fade-in duration-200">
-                                            {productsInColor.map(p => {
-                                                if (!isAdmin && p.totalStock === 0) return null; // HIDE ZERO STOCK REF IN CATALOG
-
-                                                return (
-                                                <div key={p.id} className="flex items-center justify-between sm:justify-end gap-2 bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                                                    
-                                                    {editingProduct?.id === p.id ? (
-                                                        <div className="flex items-center gap-1">
-                                                            <input 
-                                                                value={editProductForm.reference}
-                                                                onChange={e => setEditProductForm({...editProductForm, reference: e.target.value})}
-                                                                className="w-16 p-1 text-xs border border-gray-300 bg-white rounded text-gray-900 outline-none"
-                                                                placeholder="Ref"
-                                                            />
-                                                            <input 
-                                                                value={editProductForm.price}
-                                                                onChange={e => setEditProductForm({...editProductForm, price: e.target.value})}
-                                                                className="w-16 p-1 text-xs border border-gray-300 bg-white rounded text-gray-900 outline-none"
-                                                                placeholder="R$"
-                                                                type="number"
-                                                            />
-                                                            <button onClick={saveEditingProduct} className="text-green-600 p-1 hover:bg-green-50 rounded"><Save size={12}/></button>
-                                                            <button onClick={() => setEditingProduct(null)} className="text-gray-400 p-1 hover:bg-gray-200 rounded"><X size={12}/></button>
-                                                        </div>
-                                                    ) : (
-                                                        <>
-                                                            <span className="text-xs font-mono font-medium text-gray-700">{p.reference}</span>
-                                                            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
-                                                                {getGradeLabel(p.stocks)}
-                                                            </span>
-                                                            {p.price && (
-                                                                <span className="text-xs font-bold text-green-600">R$ {p.price.toFixed(2)}</span>
-                                                            )}
-                                                            
-                                                            {isAdmin && (
-                                                                <div className="flex gap-1 ml-2 border-l pl-2 border-gray-200">
-                                                                    <button onClick={() => startEditingProduct(p)} className="text-blue-400 hover:text-blue-600 p-0.5"><Edit2 size={10} /></button>
-                                                                    <button onClick={() => deleteSingleProduct(p)} className="text-red-400 hover:text-red-600 p-0.5" title="Excluir apenas esta referência nesta cor"><Trash2 size={10} /></button>
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    )}
+                            {/* Detalhes de Referência Admin (Edição Avançada) */}
+                            {(showRefDetailsForColor === colorKey) && isAdmin && (
+                                <div className="flex flex-col items-end gap-2 w-full sm:w-auto animate-in slide-in-from-top-2 fade-in duration-200">
+                                    {productsInColor.map(p => (
+                                        <div key={p.id} className="flex items-center justify-between sm:justify-end gap-2 bg-gray-50 px-2 py-1 rounded border border-gray-100 w-full sm:w-auto">
+                                            {editingProduct?.id === p.id ? (
+                                                <div className="flex items-center gap-1">
+                                                    <input 
+                                                        value={editProductForm.reference}
+                                                        onChange={e => setEditProductForm({...editProductForm, reference: e.target.value})}
+                                                        className="w-16 p-1 text-xs border border-gray-300 bg-white rounded text-gray-900 outline-none"
+                                                        placeholder="Ref"
+                                                    />
+                                                    <input 
+                                                        value={editProductForm.price}
+                                                        onChange={e => setEditProductForm({...editProductForm, price: e.target.value})}
+                                                        className="w-16 p-1 text-xs border border-gray-300 bg-white rounded text-gray-900 outline-none"
+                                                        placeholder="R$"
+                                                        type="number"
+                                                    />
+                                                    <button onClick={saveEditingProduct} className="text-green-600 p-1 hover:bg-green-50 rounded"><Save size={12}/></button>
+                                                    <button onClick={() => setEditingProduct(null)} className="text-gray-400 p-1 hover:bg-gray-200 rounded"><X size={12}/></button>
                                                 </div>
-                                            )})}
+                                            ) : (
+                                                <>
+                                                    <span className="text-xs font-mono font-medium text-gray-700">{p.reference}</span>
+                                                    <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
+                                                        {getGradeLabel(p.stocks)}
+                                                    </span>
+                                                    <div className="flex gap-1 ml-2 border-l pl-2 border-gray-200">
+                                                        <button onClick={() => startEditingProduct(p)} className="text-blue-400 hover:text-blue-600 p-0.5"><Edit2 size={10} /></button>
+                                                        <button onClick={() => deleteSingleProduct(p)} className="text-red-400 hover:text-red-600 p-0.5"><Trash2 size={10} /></button>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
-                                    )}
+                                    ))}
                                 </div>
                             )}
                         </div>
 
-                        <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-                            {SIZES.map(size => {
-                                const qty = mergedStocks[size] || 0;
-                                const hasStock = qty > 0;
-                                
-                                // HIDE SIZE BOX IF ZERO STOCK AND NOT ADMIN
-                                if (!isAdmin && !hasStock) return null;
-                                
-                                return (
-                                    <div key={size} className={`flex flex-col rounded border overflow-hidden ${hasStock ? 'bg-white border-gray-200 shadow-sm' : 'bg-gray-100 border-gray-200 opacity-60'}`}>
-                                        <div className="bg-gray-50 p-1 text-center text-[10px] font-bold text-gray-500 uppercase border-b border-gray-100">
-                                            {size}
-                                        </div>
-                                        <div className="p-2 text-center relative group h-12 flex items-center justify-center">
-                                            <span className={`font-bold ${hasStock ? 'text-indigo-600' : 'text-gray-400'}`}>
-                                                {qty}
-                                            </span>
+                        {/* LISTAGEM DE GRADES POR REFERÊNCIA */}
+                        <div className="flex flex-col gap-4">
+                            {productsInColor.map(p => {
+                                // HIDE PRODUCT REF IF NO STOCK (CATALOG)
+                                if (!isAdmin && p.totalStock === 0) return null;
 
-                                            {isAdmin && (
-                                                <div className="absolute inset-0 bg-white flex items-center justify-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => openAdjustment(productsInColor, size, 'OUT')} className="w-8 h-8 md:w-6 md:h-6 bg-red-100 text-red-600 rounded flex items-center justify-center hover:bg-red-200 shadow-sm border border-red-200"><Minus size={14}/></button>
-                                                    <button onClick={() => openAdjustment(productsInColor, size, 'IN')} className="w-8 h-8 md:w-6 md:h-6 bg-green-100 text-green-600 rounded flex items-center justify-center hover:bg-green-200 shadow-sm border border-green-200"><Plus size={14}/></button>
-                                                </div>
+                                return (
+                                    <div key={p.id} className="border-b last:border-0 pb-3 last:pb-0 border-dashed border-gray-100">
+                                        <div className="mb-2 flex items-center gap-2">
+                                            <span className="text-sm font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                                                Ref: {p.reference}
+                                            </span>
+                                            <span className="text-xs text-gray-500">
+                                                ({getGradeLabel(p.stocks)})
+                                            </span>
+                                            {p.price && (
+                                                <span className="text-xs font-bold text-green-600 ml-auto bg-green-50 px-2 py-0.5 rounded border border-green-100">
+                                                    R$ {p.price.toFixed(2)}
+                                                </span>
                                             )}
                                         </div>
+
+                                        <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                                            {SIZES.map(size => {
+                                                // Only show sizes that are relevant to this product's configured stocks or grade
+                                                const qty = p.stocks[size] || 0;
+                                                const hasStock = qty > 0;
+                                                
+                                                // Check if this size belongs to the product type (Standard vs Plus) to avoid empty boxes for irrelevant sizes
+                                                const isStandard = STANDARD_SIZES.includes(size);
+                                                const isPlus = PLUS_SIZES.includes(size);
+                                                const productKeys = Object.keys(p.stocks);
+                                                const isProductStandard = productKeys.some(k => STANDARD_SIZES.includes(k));
+                                                const isProductPlus = productKeys.some(k => PLUS_SIZES.includes(k));
+
+                                                // Determine visibility logic
+                                                // 1. If Admin: Show relevant grade slots even if 0
+                                                // 2. If Public: Show only if has stock
+                                                
+                                                if (!isAdmin && !hasStock) return null;
+                                                
+                                                // If Admin, hide P/M/G/GG for a Plus Size product, and vice versa
+                                                if (isAdmin) {
+                                                    if (isProductStandard && isPlus && !hasStock) return null;
+                                                    if (isProductPlus && isStandard && !hasStock) return null;
+                                                    // If product has no stock defined yet, fallback to show nothing or all? 
+                                                    // Let's rely on configured keys. If empty keys, show nothing.
+                                                    if (productKeys.length === 0) return null;
+                                                }
+
+                                                return (
+                                                    <div key={size} className={`flex flex-col rounded border overflow-hidden ${hasStock ? 'bg-white border-gray-200 shadow-sm' : 'bg-gray-50 border-gray-100 opacity-60'}`}>
+                                                        <div className="bg-gray-50 p-1 text-center text-[10px] font-bold text-gray-500 uppercase border-b border-gray-100">
+                                                            {size}
+                                                        </div>
+                                                        <div className="p-2 text-center relative group h-12 flex items-center justify-center">
+                                                            <span className={`font-bold ${hasStock ? 'text-indigo-600' : 'text-gray-400'}`}>
+                                                                {qty}
+                                                            </span>
+
+                                                            {isAdmin && (
+                                                                <div className="absolute inset-0 bg-white flex items-center justify-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                                                    <button onClick={() => openAdjustment([p], size, 'OUT', p.id)} className="w-8 h-8 md:w-6 md:h-6 bg-red-100 text-red-600 rounded flex items-center justify-center hover:bg-red-200 shadow-sm border border-red-200"><Minus size={14}/></button>
+                                                                    <button onClick={() => openAdjustment([p], size, 'IN', p.id)} className="w-8 h-8 md:w-6 md:h-6 bg-green-100 text-green-600 rounded flex items-center justify-center hover:bg-green-200 shadow-sm border border-green-200"><Plus size={14}/></button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
                                     </div>
-                                )
+                                );
                             })}
                         </div>
                     </div>
