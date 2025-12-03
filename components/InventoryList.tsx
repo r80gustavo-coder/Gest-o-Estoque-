@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Minus, Trash2, X, Box, ChevronRight, Edit2, Save, XCircle, AlertCircle, Grid3X3, User, EyeOff, Eye, DollarSign, Info, Palette, Layers } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, X, Box, ChevronRight, Edit2, Save, XCircle, AlertCircle, Grid3X3, User, EyeOff, Eye, DollarSign, Info, Palette, Layers, Loader2 } from 'lucide-react';
 import { Product, SIZES, Customer } from '../types';
 
 interface InventoryListProps {
@@ -65,6 +66,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
   // Adding Variation States
   const [isAddingColor, setIsAddingColor] = useState(false);
   const [newColorForm, setNewColorForm] = useState({ name: '', hex: '#000000' });
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const [isAddingRef, setIsAddingRef] = useState(false);
   const [newRefForm, setNewRefForm] = useState({ code: '', type: 'PADRAO', price: '' });
@@ -302,8 +304,14 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
   const getUniqueReferencesInfo = (group: Product[]) => {
       const uniqueMap = new Map();
       group.forEach(p => {
-          if (!uniqueMap.has(p.reference)) {
-              uniqueMap.set(p.reference, { 
+          // Normalize the reference code to prevent duplicates based on case or whitespace
+          const normalizedRef = p.reference ? p.reference.trim() : '';
+          
+          // Use the normalized reference code as key. 
+          // This ensures that even if we have 50 products with Ref 643 (one for each color), 
+          // we only see ONE entry in the header.
+          if (normalizedRef && !uniqueMap.has(normalizedRef)) {
+              uniqueMap.set(normalizedRef, { 
                   ref: p.reference, 
                   grade: getGradeLabel(p.stocks), 
                   price: p.price,
@@ -311,66 +319,101 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
               });
           }
       });
-      return Array.from(uniqueMap.values());
+      // Sort alphabetically by reference
+      return Array.from(uniqueMap.values()).sort((a: any, b: any) => a.ref.localeCompare(b.ref));
   };
 
-  const handleAddColorSubmit = () => {
+  const handleAddColorSubmit = async () => {
     if (!selectedGroup || !onAddProduct || !newColorForm.name) return;
+    if (isProcessing) return;
 
-    // Identify all unique references in the current group
-    const uniqueRefs = getUniqueReferencesInfo(selectedGroup);
-    
-    // For each reference, create a new product with the new color
-    const newProducts: Product[] = uniqueRefs.map((info: any) => ({
-        id: crypto.randomUUID(),
-        reference: info.ref,
-        name: selectedGroup[0].name.replace(selectedGroup[0].color, newColorForm.name),
-        color: newColorForm.name,
-        colorHex: newColorForm.hex,
-        imageUrl: selectedGroup[0].imageUrl,
-        description: selectedGroup[0].description,
-        stocks: {}, // Start empty
-        totalStock: 0,
-        price: info.price
-    }));
+    // Duplication Check
+    const colorExists = selectedGroup.some(p => p.color.trim().toLowerCase() === newColorForm.name.trim().toLowerCase());
+    if (colorExists) {
+        alert("Esta cor já existe para este produto.");
+        return;
+    }
 
-    onAddProduct(newProducts);
-    setNewColorForm({ name: '', hex: '#000000' });
-    setIsAddingColor(false);
+    setIsProcessing(true);
+
+    try {
+        // Identify all unique references in the current group
+        const uniqueRefs = getUniqueReferencesInfo(selectedGroup);
+        
+        // For each reference, create a new product with the new color
+        const newProducts: Product[] = uniqueRefs.map((info: any) => ({
+            id: crypto.randomUUID(),
+            reference: info.ref,
+            name: selectedGroup[0].name.replace(selectedGroup[0].color, newColorForm.name),
+            color: newColorForm.name,
+            colorHex: newColorForm.hex,
+            imageUrl: selectedGroup[0].imageUrl,
+            description: selectedGroup[0].description,
+            stocks: {}, // Start empty
+            totalStock: 0,
+            price: info.price
+        }));
+
+        await onAddProduct(newProducts);
+        setNewColorForm({ name: '', hex: '#000000' });
+        setIsAddingColor(false);
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao adicionar variação.");
+    } finally {
+        setIsProcessing(false);
+    }
   };
 
-  const handleAddRefSubmit = () => {
+  const handleAddRefSubmit = async () => {
     if (!selectedGroup || !onAddProduct || !newRefForm.code) return;
+    if (isProcessing) return;
 
-    // Identify all unique colors in the current group
-    const uniqueColorsMap = new Map();
-    selectedGroup.forEach(p => {
-        const key = `${p.color}-${p.colorHex}`;
-        if(!uniqueColorsMap.has(key)) {
-            uniqueColorsMap.set(key, { name: p.color, hex: p.colorHex });
-        }
-    });
+    // Duplication Check
+    const refExists = selectedGroup.some(p => p.reference.trim().toLowerCase() === newRefForm.code.trim().toLowerCase());
+    if (refExists) {
+        alert("Esta referência já existe neste grupo.");
+        return;
+    }
 
-    const uniqueColors = Array.from(uniqueColorsMap.values());
-    const newPrice = newRefForm.price ? parseFloat(newRefForm.price.replace(',', '.')) : undefined;
+    setIsProcessing(true);
 
-    // For each color, create a new product with the new reference
-    const newProducts: Product[] = uniqueColors.map((colorInfo: any) => ({
-        id: crypto.randomUUID(),
-        reference: newRefForm.code,
-        name: selectedGroup[0].name,
-        color: colorInfo.name,
-        colorHex: colorInfo.hex,
-        imageUrl: selectedGroup[0].imageUrl,
-        description: selectedGroup[0].description,
-        stocks: {}, // Start empty. The grid type implies potential, but actual stock is 0.
-        totalStock: 0,
-        price: isNaN(newPrice!) ? undefined : newPrice
-    }));
+    try {
+        // Identify all unique colors in the current group
+        const uniqueColorsMap = new Map();
+        selectedGroup.forEach(p => {
+            const key = `${p.color.trim().toLowerCase()}-${p.colorHex}`;
+            if(!uniqueColorsMap.has(key)) {
+                uniqueColorsMap.set(key, { name: p.color, hex: p.colorHex });
+            }
+        });
 
-    onAddProduct(newProducts);
-    setNewRefForm({ code: '', type: 'PADRAO', price: '' });
-    setIsAddingRef(false);
+        const uniqueColors = Array.from(uniqueColorsMap.values());
+        const newPrice = newRefForm.price ? parseFloat(newRefForm.price.replace(',', '.')) : undefined;
+
+        // For each color, create a new product with the new reference
+        const newProducts: Product[] = uniqueColors.map((colorInfo: any) => ({
+            id: crypto.randomUUID(),
+            reference: newRefForm.code,
+            name: selectedGroup[0].name,
+            color: colorInfo.name,
+            colorHex: colorInfo.hex,
+            imageUrl: selectedGroup[0].imageUrl,
+            description: selectedGroup[0].description,
+            stocks: {}, // Start empty. The grid type implies potential, but actual stock is 0.
+            totalStock: 0,
+            price: isNaN(newPrice!) ? undefined : newPrice
+        }));
+
+        await onAddProduct(newProducts);
+        setNewRefForm({ code: '', type: 'PADRAO', price: '' });
+        setIsAddingRef(false);
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao adicionar referência.");
+    } finally {
+        setIsProcessing(false);
+    }
   };
 
 
@@ -783,9 +826,10 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                                             </div>
                                             <button 
                                                 onClick={handleAddColorSubmit}
-                                                className="w-full py-2 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700"
+                                                disabled={isProcessing}
+                                                className="w-full py-2 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700 flex justify-center items-center gap-2"
                                             >
-                                                Criar Variação de Cor
+                                                {isProcessing ? <Loader2 className="animate-spin" size={16}/> : 'Criar Variação de Cor'}
                                             </button>
                                         </div>
                                     )}
@@ -822,9 +866,10 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                                             </div>
                                             <button 
                                                 onClick={handleAddRefSubmit}
-                                                className="w-full py-2 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700"
+                                                disabled={isProcessing}
+                                                className="w-full py-2 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700 flex justify-center items-center gap-2"
                                             >
-                                                Criar Variação de Referência
+                                                 {isProcessing ? <Loader2 className="animate-spin" size={16}/> : 'Criar Variação de Referência'}
                                             </button>
                                         </div>
                                     )}
@@ -875,9 +920,13 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                         {adjustingItem.candidates.map(candidate => {
                             // Find the fresh product data to display current stock in the dropdown
                             const freshProd = products.find(p => p.id === candidate.id) || candidate;
+                            
+                            // Check if this reference code appears more than once in candidates (Detection of Duplicates)
+                            const isDuplicate = adjustingItem.candidates.filter(c => c.reference === freshProd.reference).length > 1;
+
                             return (
                                 <option key={freshProd.id} value={freshProd.id}>
-                                    Ref: {freshProd.reference} (Disponível: {freshProd.stocks[adjustingItem!.size] || 0})
+                                    Ref: {freshProd.reference} {isDuplicate ? '(Duplicado - ID:' + freshProd.id.slice(0,4) + ')' : ''} (Disponível: {freshProd.stocks[adjustingItem!.size] || 0})
                                 </option>
                             );
                         })}

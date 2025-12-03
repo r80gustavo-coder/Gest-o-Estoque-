@@ -30,6 +30,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onCancel }) => {
   const [imageUrl, setImageUrl] = useState<string>('');
   const [productName, setProductName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // 2. Configuration (References defined BEFORE adding colors)
   const [refConfigs, setRefConfigs] = useState<ReferenceConfig[]>([
@@ -161,9 +162,27 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onCancel }) => {
   // --- Submit ---
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     if (!imageUrl) {
       alert("Adicione uma foto.");
       return;
+    }
+
+    // Check for duplicate reference codes within this form
+    const refCodes = refConfigs.map(rc => rc.code.trim().toLowerCase());
+    const uniqueRefCodes = new Set(refCodes);
+    if (uniqueRefCodes.size !== refCodes.length) {
+        alert("Existem códigos de referência duplicados nesta tela. Use códigos únicos (ex: 643 para Padrão, 644 para Plus).");
+        return;
+    }
+
+    // Check for duplicate color names within this form
+    const colorNames = colors.map(c => c.name.trim().toLowerCase());
+    const uniqueColorNames = new Set(colorNames);
+    if (uniqueColorNames.size !== colorNames.length) {
+        alert("Existem nomes de cores duplicados (ex: duas vezes 'Preto'). Remova as duplicatas.");
+        return;
     }
 
     const productsToSave: Product[] = [];
@@ -182,6 +201,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onCancel }) => {
       return;
     }
 
+    setIsSubmitting(true);
+
     // Flatten Data: Color -> RefConfig -> Product
     colors.forEach(color => {
       refConfigs.forEach(config => {
@@ -190,7 +211,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onCancel }) => {
         let totalStock = 0;
         
         // CRITICAL FIX: Only save sizes that are valid for this config type
-        // This prevents "Ghost Stocks" (e.g., entering 15 in P then switching to Plus Size)
         const validSizes = getSizesForType(config.type);
 
         Object.entries(stocksForThisRef).forEach(([size, qtyStr]) => {
@@ -222,6 +242,10 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onCancel }) => {
 
     if (productsToSave.length > 0) {
       onSave(productsToSave);
+      // Timeout to reset state in case onSave fails silently or navigation lags
+      setTimeout(() => setIsSubmitting(false), 5000);
+    } else {
+      setIsSubmitting(false);
     }
   };
 
@@ -459,10 +483,24 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onCancel }) => {
             </button>
             <button
               type="submit"
-              className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-bold hover:shadow-lg hover:from-indigo-700 hover:to-purple-700 flex items-center space-x-2 transition-all"
+              disabled={isSubmitting}
+              className={`px-6 py-3 text-white rounded-lg font-bold flex items-center space-x-2 transition-all ${
+                  isSubmitting 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:shadow-lg hover:from-indigo-700 hover:to-purple-700'
+              }`}
             >
-              <Save size={18} />
-              <span>Salvar Produtos</span>
+              {isSubmitting ? (
+                  <>
+                    <Loader2 className="animate-spin" size={18} />
+                    <span>Processando...</span>
+                  </>
+              ) : (
+                  <>
+                    <Save size={18} />
+                    <span>Salvar Produtos</span>
+                  </>
+              )}
             </button>
         </div>
 
