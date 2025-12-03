@@ -1,8 +1,7 @@
 
 import React, { useState, useRef } from 'react';
-import { Camera, Sparkles, Loader2, Save, Plus, Trash2, Grid, Layers, DollarSign } from 'lucide-react';
+import { Camera, Loader2, Save, Plus, Trash2, Grid, Layers, DollarSign } from 'lucide-react';
 import { Product } from '../types';
-import { analyzeClothingImage } from '../services/geminiService';
 
 interface ProductFormProps {
   onSave: (products: Product[]) => void;
@@ -42,9 +41,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onCancel }) => {
     { id: '1', name: '', hex: '#000000', stocks: {} }
   ]);
 
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- Helpers ---
@@ -108,24 +105,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onCancel }) => {
       } finally {
         setIsCompressing(false);
       }
-    }
-  };
-
-  const handleAiAnalyze = async () => {
-    if (!imageUrl) return;
-    setIsAnalyzing(true);
-    setError(null);
-    try {
-      const result = await analyzeClothingImage(imageUrl);
-      setDescription(result.description);
-      // Update first color if empty
-      setColors(prev => prev.map((c, idx) => 
-        idx === 0 && !c.name ? { ...c, name: result.color } : c
-      ));
-    } catch (err) {
-      setError("Falha ao analisar imagem.");
-    } finally {
-      setIsAnalyzing(false);
     }
   };
 
@@ -276,15 +255,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onCancel }) => {
                             className="absolute inset-0 opacity-0 cursor-pointer"
                         />
                     </div>
-                    <button
-                        type="button"
-                        disabled={!imageUrl || isAnalyzing}
-                        onClick={handleAiAnalyze}
-                        className="w-full mt-2 py-2 px-4 rounded-lg flex items-center justify-center space-x-2 font-medium text-sm bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-                    >
-                        {isAnalyzing ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
-                        <span>IA: Analisar Imagem</span>
-                    </button>
                 </div>
 
                 {/* Info Inputs */}
@@ -306,7 +276,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onCancel }) => {
                             value={description}
                             onChange={e => setDescription(e.target.value)}
                             className="w-full p-2.5 border rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
-                            placeholder="Descrição curta gerada pela IA ou manual..."
+                            placeholder="Descrição manual..."
                         />
                     </div>
                 </div>
