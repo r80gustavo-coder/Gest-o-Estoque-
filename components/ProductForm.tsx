@@ -188,8 +188,14 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSave, onCancel }) => {
         const stocksForThisRef = color.stocks[config.id] || {};
         const finalStocks: { [key: string]: number } = {};
         let totalStock = 0;
+        
+        // CRITICAL FIX: Only save sizes that are valid for this config type
+        // This prevents "Ghost Stocks" (e.g., entering 15 in P then switching to Plus Size)
+        const validSizes = getSizesForType(config.type);
 
         Object.entries(stocksForThisRef).forEach(([size, qtyStr]) => {
+            if (!validSizes.includes(size)) return; // Ignore invalid sizes for this ref type
+
             const qty = parseInt(qtyStr as string);
             if (!isNaN(qty) && qty > 0) {
                 finalStocks[size] = qty;

@@ -130,30 +130,32 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
   const openAdjustment = (productsInColor: Product[], size: string, type: 'IN' | 'OUT') => {
     if (productsInColor.length === 0) return;
 
-    // Filter logic: Only show products that are relevant for this size.
-    // Logic: 
-    // 1. If product explicitly has this size in its stocks keys, it's a match.
-    // 2. If not (maybe stock is 0 and key missing), check "Grade Family":
-    //    - If size is P, M, G, GG -> match products that have ANY Standard keys.
-    //    - If size is G1, G2, G3 -> match products that have ANY Plus keys.
+    // Smart Filter: Only allow products that are logically relevant for the clicked size
+    // This prevents showing "G1-G3" references when clicking "P"
     
     const relevantCandidates = productsInColor.filter(p => {
-        const pKeys = Object.keys(p.stocks);
-        if (pKeys.includes(size)) return true; // Explicit match
-
         const isStandardTarget = STANDARD_SIZES.includes(size);
+        const isPlusTarget = PLUS_SIZES.includes(size);
+
+        // Check 1: Does product explicitly have stock key for this size?
+        if (p.stocks.hasOwnProperty(size)) return true;
+
+        // Check 2: Implicit grade match. 
+        // If product has ANY standard keys, it's a candidate for P, M, G, GG
+        // If product has ANY plus keys, it's a candidate for G1, G2, G3
+        const pKeys = Object.keys(p.stocks);
         const hasStandardKeys = pKeys.some(k => STANDARD_SIZES.includes(k));
         const hasPlusKeys = pKeys.some(k => PLUS_SIZES.includes(k));
 
         if (isStandardTarget && hasStandardKeys) return true;
-        if (!isStandardTarget && hasPlusKeys) return true;
+        if (isPlusTarget && hasPlusKeys) return true;
         
-        // If product has NO keys (completely empty), we might include it as a fallback, 
-        // or exclude it to avoid clutter. Let's include if it's the only option.
-        return pKeys.length === 0; 
+        // If product is empty (newly created), rely on reference type implication or fallback
+        // Since we don't track type explicitly in Product interface, we assume empty products 
+        // might be valid if they are the ONLY product, otherwise filter them out to be safe.
+        return pKeys.length === 0 && productsInColor.length === 1;
     });
 
-    // Fallback: If strict filtering killed everything, show all.
     const finalCandidates = relevantCandidates.length > 0 ? relevantCandidates : productsInColor;
 
     let defaultProduct = finalCandidates.find(p => p.stocks.hasOwnProperty(size));
@@ -733,7 +735,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                     </label>
                     <select
                         value={adjustingItem.selectedProductId}
-                        onChange={e => setAdjustingItem({...adjustingItem, selectedProductId: e.target.value})}
+                        onChange={e => setAdjustingItem({...adjustingItem!, selectedProductId: e.target.value})}
                         className="w-full p-2.5 border border-indigo-200 bg-white rounded-lg text-sm text-gray-900 font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
                     >
                         {adjustingItem.candidates.map(candidate => {
@@ -741,7 +743,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                             const freshProd = products.find(p => p.id === candidate.id) || candidate;
                             return (
                                 <option key={freshProd.id} value={freshProd.id}>
-                                    Ref: {freshProd.reference} (Disponível: {freshProd.stocks[adjustingItem.size] || 0})
+                                    Ref: {freshProd.reference} (Disponível: {freshProd.stocks[adjustingItem!.size] || 0})
                                 </option>
                             );
                         })}
