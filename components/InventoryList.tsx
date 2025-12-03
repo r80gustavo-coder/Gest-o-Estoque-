@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
-import { Search, Plus, Minus, Trash2, X, Box, ChevronRight, Edit2, Save, XCircle, AlertCircle, Grid3X3, User, EyeOff, Eye, DollarSign, Info, Palette, Layers, Loader2 } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, Plus, Minus, Trash2, X, Box, ChevronRight, Edit2, Save, XCircle, AlertCircle, Grid3X3, User, EyeOff, Eye, DollarSign, Info, Palette, Layers, Loader2, CheckSquare, Square } from 'lucide-react';
 import { Product, SIZES, Customer } from '../types';
 
 interface InventoryListProps {
@@ -66,6 +66,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
   // Adding Variation States
   const [isAddingColor, setIsAddingColor] = useState(false);
   const [newColorForm, setNewColorForm] = useState({ name: '', hex: '#000000' });
+  const [selectedTargetRefs, setSelectedTargetRefs] = useState<string[]>([]); // New state for selecting refs
   const [isProcessing, setIsProcessing] = useState(false);
   
   const [isAddingRef, setIsAddingRef] = useState(false);
@@ -90,6 +91,33 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
     return products.filter(p => p.imageUrl === selectedImageKey);
   }, [products, selectedImageKey]);
 
+
+  // Helper function to extract unique references (Moved up to be accessible)
+  const getUniqueReferencesInfo = (group: Product[]) => {
+      const uniqueMap = new Map();
+      group.forEach(p => {
+          const normalizedRef = p.reference ? p.reference.trim() : '';
+          if (normalizedRef && !uniqueMap.has(normalizedRef)) {
+              uniqueMap.set(normalizedRef, { 
+                  ref: p.reference, 
+                  grade: getGradeLabel(p.stocks), 
+                  price: p.price,
+                  description: p.description
+              });
+          }
+      });
+      return Array.from(uniqueMap.values()).sort((a: any, b: any) => a.ref.localeCompare(b.ref));
+  };
+
+  // Effect to pre-select all references when opening "Add Color"
+  useEffect(() => {
+    if (isAddingColor && selectedGroup) {
+        const refs = getUniqueReferencesInfo(selectedGroup).map((r: any) => r.ref);
+        setSelectedTargetRefs(refs);
+    }
+  }, [isAddingColor, selectedGroup]);
+
+
   // Determine Grade Label based on stocks keys
   const getGradeLabel = (stocks: { [key: string]: number }) => {
     const keys = Object.keys(stocks);
@@ -105,7 +133,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
   // Get Fresh Stock for Logic
   const getActiveAdjustStock = () => {
       if (!adjustingItem) return 0;
-      // FIX: Always look up the fresh product from the global props, not the stale 'candidates' snapshot
       const target = products.find(p => p.id === adjustingItem.selectedProductId);
       return target?.stocks[adjustingItem.size] || 0;
   }
@@ -138,19 +165,12 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
   const openAdjustment = (productsInColor: Product[], size: string, type: 'IN' | 'OUT') => {
     if (productsInColor.length === 0) return;
 
-    // Smart Filter: Only allow products that are logically relevant for the clicked size
-    // This prevents showing "G1-G3" references when clicking "P"
-    
     const relevantCandidates = productsInColor.filter(p => {
         const isStandardTarget = STANDARD_SIZES.includes(size);
         const isPlusTarget = PLUS_SIZES.includes(size);
 
-        // Check 1: Does product explicitly have stock key for this size?
         if (p.stocks.hasOwnProperty(size)) return true;
 
-        // Check 2: Implicit grade match. 
-        // If product has ANY standard keys, it's a candidate for P, M, G, GG
-        // If product has ANY plus keys, it's a candidate for G1, G2, G3
         const pKeys = Object.keys(p.stocks);
         const hasStandardKeys = pKeys.some(k => STANDARD_SIZES.includes(k));
         const hasPlusKeys = pKeys.some(k => PLUS_SIZES.includes(k));
@@ -158,9 +178,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
         if (isStandardTarget && hasStandardKeys) return true;
         if (isPlusTarget && hasPlusKeys) return true;
         
-        // If product is empty (newly created), rely on reference type implication or fallback
-        // Since we don't track type explicitly in Product interface, we assume empty products 
-        // might be valid if they are the ONLY product, otherwise filter them out to be safe.
         return pKeys.length === 0 && productsInColor.length === 1;
     });
 
@@ -180,7 +197,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
     setSelectedCustomer('');
   };
 
-  // Color Batch Editing
   const startEditingColor = (colorKey: string, productsInColor: Product[]) => {
     const first = productsInColor[0];
     setEditingColorKey(colorKey);
@@ -204,7 +220,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
     }
   };
 
-  // Grid Editing Functions
   const startGridEditing = (colorKey: string, productsInColor: Product[]) => {
     const initialState: any = {};
     productsInColor.forEach(p => {
@@ -264,7 +279,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
     setGridEditingColorKey(null);
   };
 
-  // Individual Product Editing
   const startEditingProduct = (p: Product) => {
       setEditingProduct(p);
       setEditProductForm({ 
@@ -301,31 +315,13 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
 
   // --- NEW VARIATION LOGIC ---
 
-  const getUniqueReferencesInfo = (group: Product[]) => {
-      const uniqueMap = new Map();
-      group.forEach(p => {
-          // Normalize the reference code to prevent duplicates based on case or whitespace
-          const normalizedRef = p.reference ? p.reference.trim() : '';
-          
-          // Use the normalized reference code as key. 
-          // This ensures that even if we have 50 products with Ref 643 (one for each color), 
-          // we only see ONE entry in the header.
-          if (normalizedRef && !uniqueMap.has(normalizedRef)) {
-              uniqueMap.set(normalizedRef, { 
-                  ref: p.reference, 
-                  grade: getGradeLabel(p.stocks), 
-                  price: p.price,
-                  description: p.description
-              });
-          }
-      });
-      // Sort alphabetically by reference
-      return Array.from(uniqueMap.values()).sort((a: any, b: any) => a.ref.localeCompare(b.ref));
-  };
-
   const handleAddColorSubmit = async () => {
     if (!selectedGroup || !onAddProduct || !newColorForm.name) return;
     if (isProcessing) return;
+    if (selectedTargetRefs.length === 0) {
+        alert("Selecione pelo menos uma referência para adicionar a cor.");
+        return;
+    }
 
     // Duplication Check
     const colorExists = selectedGroup.some(p => p.color.trim().toLowerCase() === newColorForm.name.trim().toLowerCase());
@@ -340,8 +336,11 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
         // Identify all unique references in the current group
         const uniqueRefs = getUniqueReferencesInfo(selectedGroup);
         
-        // For each reference, create a new product with the new color
-        const newProducts: Product[] = uniqueRefs.map((info: any) => ({
+        // Filter only selected references
+        const refsToCreate = uniqueRefs.filter((info: any) => selectedTargetRefs.includes(info.ref));
+
+        // For each SELECTED reference, create a new product with the new color
+        const newProducts: Product[] = refsToCreate.map((info: any) => ({
             id: crypto.randomUUID(),
             reference: info.ref,
             name: selectedGroup[0].name.replace(selectedGroup[0].color, newColorForm.name),
@@ -369,7 +368,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
     if (!selectedGroup || !onAddProduct || !newRefForm.code) return;
     if (isProcessing) return;
 
-    // Duplication Check
     const refExists = selectedGroup.some(p => p.reference.trim().toLowerCase() === newRefForm.code.trim().toLowerCase());
     if (refExists) {
         alert("Esta referência já existe neste grupo.");
@@ -379,7 +377,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
     setIsProcessing(true);
 
     try {
-        // Identify all unique colors in the current group
         const uniqueColorsMap = new Map();
         selectedGroup.forEach(p => {
             const key = `${p.color.trim().toLowerCase()}-${p.colorHex}`;
@@ -391,7 +388,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
         const uniqueColors = Array.from(uniqueColorsMap.values());
         const newPrice = newRefForm.price ? parseFloat(newRefForm.price.replace(',', '.')) : undefined;
 
-        // For each color, create a new product with the new reference
         const newProducts: Product[] = uniqueColors.map((colorInfo: any) => ({
             id: crypto.randomUUID(),
             reference: newRefForm.code,
@@ -400,7 +396,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
             colorHex: colorInfo.hex,
             imageUrl: selectedGroup[0].imageUrl,
             description: selectedGroup[0].description,
-            stocks: {}, // Start empty. The grid type implies potential, but actual stock is 0.
+            stocks: {},
             totalStock: 0,
             price: isNaN(newPrice!) ? undefined : newPrice
         }));
@@ -456,7 +452,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                     });
                 });
 
-                // ADMIN ONLY: Hide if zero stock and toggle is ON
                 if (isAdmin && hideZeroStock && totalStockInColor === 0) {
                     return null;
                 }
@@ -464,7 +459,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                 if (gridEditingColorKey === colorKey) {
                    return (
                      <div key={key} className="bg-white rounded-xl border-2 border-indigo-200 p-4 shadow-md">
-                        {/* Grid Edit Logic Same as Before */}
                         <div className="flex justify-between items-center mb-4">
                            <h4 className="font-bold text-indigo-700 flex items-center gap-2">
                              <Grid3X3 size={20} /> Editando Grade: {first.color}
@@ -515,7 +509,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
 
                 return (
                     <div key={key} className="bg-white rounded-xl border p-4 shadow-sm ring-1 ring-gray-100">
-                        {/* Header */}
                         <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4 border-b pb-3 border-dashed border-gray-100">
                             
                             {editingColorKey === colorKey ? (
@@ -563,7 +556,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                                 </div>
                             )}
 
-                            {/* References List - HIDDEN BY DEFAULT to satisfy 'show once' requirement */}
                             {(showRefDetailsForColor === colorKey || !isAdmin) && (
                                 <div className={`flex flex-col items-end gap-2 w-full sm:w-auto ${!isAdmin ? 'hidden' : ''}`}>
                                     {showRefDetailsForColor === colorKey && (
@@ -615,7 +607,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                             )}
                         </div>
 
-                        {/* Merged Stock Grid */}
                         <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
                             {SIZES.map(size => {
                                 const qty = mergedStocks[size] || 0;
@@ -651,7 +642,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
 
   return (
     <div className="space-y-6">
-      {/* Search Header */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm border">
         <h2 className="text-xl font-bold text-gray-800">
             {isAdmin ? 'Gerenciamento de Estoque' : 'Catálogo'}
@@ -668,7 +658,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
         </div>
       </div>
 
-      {/* Grid of Groups (Catalog View) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {productGroups.map((group, idx) => {
           const mainProduct = group[0];
@@ -737,7 +726,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
         </div>
       )}
 
-      {/* Main Detail Modal */}
       {selectedGroup && selectedGroup.length > 0 && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4">
            <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in fade-in zoom-in-95 duration-200">
@@ -754,7 +742,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                         <button onClick={() => setSelectedImageKey(null)} className="text-gray-400 hover:text-gray-600 hidden md:block hover:bg-gray-100 p-1 rounded-full transition-colors"><X size={24} /></button>
                     </div>
                     
-                    {/* GLOBAL REFERENCES HEADER - SHOWS ONCE */}
                     <div className="flex flex-wrap gap-2">
                         {getUniqueReferencesInfo(selectedGroup).map((info: any) => (
                              <div key={info.ref} className="bg-indigo-50 border border-indigo-100 rounded-md px-3 py-1.5 flex items-center gap-2">
@@ -781,7 +768,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                  <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
                     {renderGroupContent()}
 
-                    {/* ACTIONS FOR ADDING NEW VARIATIONS */}
                     {isAdmin && (
                         <div className="mt-8 space-y-3">
                             <h4 className="text-sm font-bold text-gray-500 uppercase">Expandir Produto</h4>
@@ -806,9 +792,10 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                                     {isAddingColor && (
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center mb-2">
-                                                <h5 className="font-bold text-indigo-700 flex items-center gap-2"><Palette size={18}/> Nova Cor (para todas as referências)</h5>
+                                                <h5 className="font-bold text-indigo-700 flex items-center gap-2"><Palette size={18}/> Nova Cor</h5>
                                                 <button onClick={() => setIsAddingColor(false)} className="text-gray-400 hover:text-gray-600"><X size={18}/></button>
                                             </div>
+                                            
                                             <div className="flex gap-4">
                                                 <input 
                                                     type="text" 
@@ -824,6 +811,35 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                                                     className="h-10 w-16 p-1 border rounded bg-white cursor-pointer"
                                                 />
                                             </div>
+
+                                            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                                <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Aplicar nas referências:</label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {getUniqueReferencesInfo(selectedGroup).map((info: any) => (
+                                                        <label key={info.ref} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer bg-white p-2 rounded border border-gray-200 hover:border-indigo-300">
+                                                            <div 
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    const ref = info.ref;
+                                                                    if (selectedTargetRefs.includes(ref)) {
+                                                                        setSelectedTargetRefs(prev => prev.filter(r => r !== ref));
+                                                                    } else {
+                                                                        setSelectedTargetRefs(prev => [...prev, ref]);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                {selectedTargetRefs.includes(info.ref) 
+                                                                    ? <CheckSquare size={18} className="text-indigo-600" />
+                                                                    : <Square size={18} className="text-gray-400" />
+                                                                }
+                                                            </div>
+                                                            <span className="font-mono font-bold">{info.ref}</span>
+                                                            <span className="text-[10px] text-gray-500">({info.grade})</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+
                                             <button 
                                                 onClick={handleAddColorSubmit}
                                                 disabled={isProcessing}
@@ -883,7 +899,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
         </div>
       )}
 
-      {/* Stock Adjustment Mini Modal */}
       {adjustingItem && (
         <div 
             className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -918,10 +933,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                         className="w-full p-2.5 border border-indigo-200 bg-white rounded-lg text-sm text-gray-900 font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
                     >
                         {adjustingItem.candidates.map(candidate => {
-                            // Find the fresh product data to display current stock in the dropdown
                             const freshProd = products.find(p => p.id === candidate.id) || candidate;
-                            
-                            // Check if this reference code appears more than once in candidates (Detection of Duplicates)
                             const isDuplicate = adjustingItem.candidates.filter(c => c.reference === freshProd.reference).length > 1;
 
                             return (
