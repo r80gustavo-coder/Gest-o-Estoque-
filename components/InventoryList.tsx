@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Minus, Trash2, X, Box, ChevronRight, Edit2, Save, XCircle, AlertCircle, Grid3X3, User, EyeOff, Eye, DollarSign, Info } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, X, Box, ChevronRight, Edit2, Save, XCircle, AlertCircle, Grid3X3, User, EyeOff, Eye, DollarSign, Info, Palette, Layers } from 'lucide-react';
 import { Product, SIZES, Customer } from '../types';
 
 interface InventoryListProps {
@@ -62,6 +61,13 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editProductForm, setEditProductForm] = useState({ reference: '', name: '', price: '' });
   const [showRefDetailsForColor, setShowRefDetailsForColor] = useState<string | null>(null);
+
+  // Adding Variation States
+  const [isAddingColor, setIsAddingColor] = useState(false);
+  const [newColorForm, setNewColorForm] = useState({ name: '', hex: '#000000' });
+  
+  const [isAddingRef, setIsAddingRef] = useState(false);
+  const [newRefForm, setNewRefForm] = useState({ code: '', type: 'PADRAO', price: '' });
 
   // UI Toggles
   const [hideZeroStock, setHideZeroStock] = useState(true);
@@ -291,25 +297,82 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
       }
   }
 
-  const addNewVariationToGroup = () => {
-    if (!selectedGroup || !onAddProduct || selectedGroup.length === 0) return;
-    
-    const base = selectedGroup[0];
-    const newProduct: Product = {
-        id: crypto.randomUUID(),
-        reference: base.reference, 
-        name: `Nova Variação`,
-        color: 'Nova Cor',
-        colorHex: '#000000',
-        imageUrl: base.imageUrl,
-        description: base.description,
-        stocks: {},
-        totalStock: 0,
-        price: base.price
-    };
+  // --- NEW VARIATION LOGIC ---
 
-    onAddProduct([newProduct]);
+  const getUniqueReferencesInfo = (group: Product[]) => {
+      const uniqueMap = new Map();
+      group.forEach(p => {
+          if (!uniqueMap.has(p.reference)) {
+              uniqueMap.set(p.reference, { 
+                  ref: p.reference, 
+                  grade: getGradeLabel(p.stocks), 
+                  price: p.price,
+                  description: p.description
+              });
+          }
+      });
+      return Array.from(uniqueMap.values());
   };
+
+  const handleAddColorSubmit = () => {
+    if (!selectedGroup || !onAddProduct || !newColorForm.name) return;
+
+    // Identify all unique references in the current group
+    const uniqueRefs = getUniqueReferencesInfo(selectedGroup);
+    
+    // For each reference, create a new product with the new color
+    const newProducts: Product[] = uniqueRefs.map((info: any) => ({
+        id: crypto.randomUUID(),
+        reference: info.ref,
+        name: selectedGroup[0].name.replace(selectedGroup[0].color, newColorForm.name),
+        color: newColorForm.name,
+        colorHex: newColorForm.hex,
+        imageUrl: selectedGroup[0].imageUrl,
+        description: selectedGroup[0].description,
+        stocks: {}, // Start empty
+        totalStock: 0,
+        price: info.price
+    }));
+
+    onAddProduct(newProducts);
+    setNewColorForm({ name: '', hex: '#000000' });
+    setIsAddingColor(false);
+  };
+
+  const handleAddRefSubmit = () => {
+    if (!selectedGroup || !onAddProduct || !newRefForm.code) return;
+
+    // Identify all unique colors in the current group
+    const uniqueColorsMap = new Map();
+    selectedGroup.forEach(p => {
+        const key = `${p.color}-${p.colorHex}`;
+        if(!uniqueColorsMap.has(key)) {
+            uniqueColorsMap.set(key, { name: p.color, hex: p.colorHex });
+        }
+    });
+
+    const uniqueColors = Array.from(uniqueColorsMap.values());
+    const newPrice = newRefForm.price ? parseFloat(newRefForm.price.replace(',', '.')) : undefined;
+
+    // For each color, create a new product with the new reference
+    const newProducts: Product[] = uniqueColors.map((colorInfo: any) => ({
+        id: crypto.randomUUID(),
+        reference: newRefForm.code,
+        name: selectedGroup[0].name,
+        color: colorInfo.name,
+        colorHex: colorInfo.hex,
+        imageUrl: selectedGroup[0].imageUrl,
+        description: selectedGroup[0].description,
+        stocks: {}, // Start empty. The grid type implies potential, but actual stock is 0.
+        totalStock: 0,
+        price: isNaN(newPrice!) ? undefined : newPrice
+    }));
+
+    onAddProduct(newProducts);
+    setNewRefForm({ code: '', type: 'PADRAO', price: '' });
+    setIsAddingRef(false);
+  };
+
 
   const isValidTransaction = () => {
     if (!adjustingItem) return false;
@@ -496,6 +559,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                                                             {isAdmin && (
                                                                 <div className="flex gap-1 ml-2 border-l pl-2 border-gray-200">
                                                                     <button onClick={() => startEditingProduct(p)} className="text-blue-400 hover:text-blue-600 p-0.5"><Edit2 size={10} /></button>
+                                                                    <button onClick={() => deleteSingleProduct(p)} className="text-red-400 hover:text-red-600 p-0.5" title="Excluir apenas esta referência nesta cor"><Trash2 size={10} /></button>
                                                                 </div>
                                                             )}
                                                         </>
@@ -540,20 +604,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
             })}
         </div>
     );
-  };
-
-  const getUniqueReferencesInfo = (group: Product[]) => {
-      const uniqueMap = new Map();
-      group.forEach(p => {
-          if (!uniqueMap.has(p.reference)) {
-              uniqueMap.set(p.reference, { 
-                  ref: p.reference, 
-                  grade: getGradeLabel(p.stocks), 
-                  price: p.price 
-              });
-          }
-      });
-      return Array.from(uniqueMap.values());
   };
 
   return (
@@ -688,14 +738,98 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                  <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
                     {renderGroupContent()}
 
+                    {/* ACTIONS FOR ADDING NEW VARIATIONS */}
                     {isAdmin && (
-                        <div className="mt-8">
-                            <button
-                                onClick={addNewVariationToGroup}
-                                className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2"
-                            >
-                                <Plus size={20} /> Adicionar Nova Cor ou Referência
-                            </button>
+                        <div className="mt-8 space-y-3">
+                            <h4 className="text-sm font-bold text-gray-500 uppercase">Expandir Produto</h4>
+                            
+                            {!isAddingColor && !isAddingRef ? (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <button
+                                        onClick={() => setIsAddingColor(true)}
+                                        className="py-3 px-4 border border-gray-300 bg-white rounded-xl text-gray-600 font-medium hover:border-indigo-400 hover:text-indigo-600 hover:shadow-sm transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Palette size={18} /> Adicionar Nova Cor
+                                    </button>
+                                    <button
+                                        onClick={() => setIsAddingRef(true)}
+                                        className="py-3 px-4 border border-gray-300 bg-white rounded-xl text-gray-600 font-medium hover:border-indigo-400 hover:text-indigo-600 hover:shadow-sm transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Layers size={18} /> Adicionar Nova Referência
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="bg-white p-4 rounded-xl border border-indigo-200 shadow-sm animate-in fade-in slide-in-from-bottom-2">
+                                    {isAddingColor && (
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <h5 className="font-bold text-indigo-700 flex items-center gap-2"><Palette size={18}/> Nova Cor (para todas as referências)</h5>
+                                                <button onClick={() => setIsAddingColor(false)} className="text-gray-400 hover:text-gray-600"><X size={18}/></button>
+                                            </div>
+                                            <div className="flex gap-4">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Nome da Cor" 
+                                                    value={newColorForm.name}
+                                                    onChange={e => setNewColorForm({...newColorForm, name: e.target.value})}
+                                                    className="flex-1 p-2 border rounded bg-white text-gray-900"
+                                                />
+                                                <input 
+                                                    type="color" 
+                                                    value={newColorForm.hex}
+                                                    onChange={e => setNewColorForm({...newColorForm, hex: e.target.value})}
+                                                    className="h-10 w-16 p-1 border rounded bg-white cursor-pointer"
+                                                />
+                                            </div>
+                                            <button 
+                                                onClick={handleAddColorSubmit}
+                                                className="w-full py-2 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700"
+                                            >
+                                                Criar Variação de Cor
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {isAddingRef && (
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <h5 className="font-bold text-indigo-700 flex items-center gap-2"><Layers size={18}/> Nova Referência (para todas as cores)</h5>
+                                                <button onClick={() => setIsAddingRef(false)} className="text-gray-400 hover:text-gray-600"><X size={18}/></button>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Código (Ex: 645)" 
+                                                    value={newRefForm.code}
+                                                    onChange={e => setNewRefForm({...newRefForm, code: e.target.value})}
+                                                    className="p-2 border rounded bg-white text-gray-900"
+                                                />
+                                                <select
+                                                    value={newRefForm.type}
+                                                    onChange={e => setNewRefForm({...newRefForm, type: e.target.value})}
+                                                    className="p-2 border rounded bg-white text-gray-900"
+                                                >
+                                                    <option value="PADRAO">Padrão (P-GG)</option>
+                                                    <option value="PLUS">Plus (G1-G3)</option>
+                                                </select>
+                                                <input 
+                                                    type="number" 
+                                                    placeholder="Preço R$" 
+                                                    value={newRefForm.price}
+                                                    onChange={e => setNewRefForm({...newRefForm, price: e.target.value})}
+                                                    className="p-2 border rounded bg-white text-gray-900"
+                                                />
+                                            </div>
+                                            <button 
+                                                onClick={handleAddRefSubmit}
+                                                className="w-full py-2 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700"
+                                            >
+                                                Criar Variação de Referência
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
                  </div>
