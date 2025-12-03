@@ -29,6 +29,9 @@ const groupProductsByImage = (products: Product[]) => {
   return Object.values(groups);
 };
 
+const STANDARD_SIZES = ['P', 'M', 'G', 'GG'];
+const PLUS_SIZES = ['G1', 'G2', 'G3'];
+
 const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUpdateStock, onBatchUpdateStock, onDelete, onEdit, onAddProduct, isAdmin }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -127,11 +130,37 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
   const openAdjustment = (productsInColor: Product[], size: string, type: 'IN' | 'OUT') => {
     if (productsInColor.length === 0) return;
 
-    let defaultProduct = productsInColor.find(p => p.stocks.hasOwnProperty(size));
-    if (!defaultProduct) defaultProduct = productsInColor[0];
+    // Filter logic: Only show products that are relevant for this size.
+    // Logic: 
+    // 1. If product explicitly has this size in its stocks keys, it's a match.
+    // 2. If not (maybe stock is 0 and key missing), check "Grade Family":
+    //    - If size is P, M, G, GG -> match products that have ANY Standard keys.
+    //    - If size is G1, G2, G3 -> match products that have ANY Plus keys.
+    
+    const relevantCandidates = productsInColor.filter(p => {
+        const pKeys = Object.keys(p.stocks);
+        if (pKeys.includes(size)) return true; // Explicit match
+
+        const isStandardTarget = STANDARD_SIZES.includes(size);
+        const hasStandardKeys = pKeys.some(k => STANDARD_SIZES.includes(k));
+        const hasPlusKeys = pKeys.some(k => PLUS_SIZES.includes(k));
+
+        if (isStandardTarget && hasStandardKeys) return true;
+        if (!isStandardTarget && hasPlusKeys) return true;
+        
+        // If product has NO keys (completely empty), we might include it as a fallback, 
+        // or exclude it to avoid clutter. Let's include if it's the only option.
+        return pKeys.length === 0; 
+    });
+
+    // Fallback: If strict filtering killed everything, show all.
+    const finalCandidates = relevantCandidates.length > 0 ? relevantCandidates : productsInColor;
+
+    let defaultProduct = finalCandidates.find(p => p.stocks.hasOwnProperty(size));
+    if (!defaultProduct) defaultProduct = finalCandidates[0];
 
     setAdjustingItem({ 
-        candidates: productsInColor,
+        candidates: finalCandidates,
         selectedProductId: defaultProduct.id,
         size, 
         type,
@@ -545,7 +574,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
       </div>
 
       {/* Grid of Groups (Catalog View) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {productGroups.map((group, idx) => {
           const mainProduct = group[0];
           const totalStockInGroup = group.reduce((acc, p) => acc + p.totalStock, 0);
@@ -712,7 +741,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                             const freshProd = products.find(p => p.id === candidate.id) || candidate;
                             return (
                                 <option key={freshProd.id} value={freshProd.id}>
-                                    {freshProd.reference} - {getGradeLabel(freshProd.stocks)} ({freshProd.stocks[adjustingItem.size] || 0} un.)
+                                    Ref: {freshProd.reference} (Disponível: {freshProd.stocks[adjustingItem.size] || 0})
                                 </option>
                             );
                         })}
