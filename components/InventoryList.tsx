@@ -560,7 +560,10 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                                 <div className={`flex flex-col items-end gap-2 w-full sm:w-auto ${!isAdmin ? 'hidden' : ''}`}>
                                     {showRefDetailsForColor === colorKey && (
                                         <div className="flex flex-col gap-1 w-full sm:w-auto animate-in slide-in-from-top-2 fade-in duration-200">
-                                            {productsInColor.map(p => (
+                                            {productsInColor.map(p => {
+                                                if (!isAdmin && p.totalStock === 0) return null; // HIDE ZERO STOCK REF IN CATALOG
+
+                                                return (
                                                 <div key={p.id} className="flex items-center justify-between sm:justify-end gap-2 bg-gray-50 px-2 py-1 rounded border border-gray-100">
                                                     
                                                     {editingProduct?.id === p.id ? (
@@ -600,7 +603,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                                                         </>
                                                     )}
                                                 </div>
-                                            ))}
+                                            )})}
                                         </div>
                                     )}
                                 </div>
@@ -611,6 +614,9 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                             {SIZES.map(size => {
                                 const qty = mergedStocks[size] || 0;
                                 const hasStock = qty > 0;
+                                
+                                // HIDE SIZE BOX IF ZERO STOCK AND NOT ADMIN
+                                if (!isAdmin && !hasStock) return null;
                                 
                                 return (
                                     <div key={size} className={`flex flex-col rounded border overflow-hidden ${hasStock ? 'bg-white border-gray-200 shadow-sm' : 'bg-gray-100 border-gray-200 opacity-60'}`}>
