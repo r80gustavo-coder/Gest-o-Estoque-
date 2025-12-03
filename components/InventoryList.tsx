@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Minus, Trash2, X, Box, ChevronRight, Edit2, Save, XCircle, AlertCircle, Grid3X3, User, EyeOff, Eye, DollarSign } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, X, Box, ChevronRight, Edit2, Save, XCircle, AlertCircle, Grid3X3, User, EyeOff, Eye, DollarSign, Info } from 'lucide-react';
 import { Product, SIZES, Customer } from '../types';
 
 interface InventoryListProps {
@@ -58,6 +58,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
   // Edit Specific Reference State
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editProductForm, setEditProductForm] = useState({ reference: '', name: '', price: '' });
+  const [showRefDetailsForColor, setShowRefDetailsForColor] = useState<string | null>(null);
 
   // UI Toggles
   const [hideZeroStock, setHideZeroStock] = useState(true);
@@ -90,13 +91,20 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
     return 'P ao GG';
   };
 
+  // Get Fresh Stock for Logic
+  const getActiveAdjustStock = () => {
+      if (!adjustingItem) return 0;
+      // FIX: Always look up the fresh product from the global props, not the stale 'candidates' snapshot
+      const target = products.find(p => p.id === adjustingItem.selectedProductId);
+      return target?.stocks[adjustingItem.size] || 0;
+  }
+
   const handleAdjustSubmit = () => {
     const qty = typeof adjustQty === 'string' ? parseInt(adjustQty) : adjustQty;
 
     if (adjustingItem && qty > 0) {
         if (adjustingItem.type === 'OUT') {
-            const targetProduct = products.find(p => p.id === adjustingItem.selectedProductId);
-            const currentStock = targetProduct?.stocks[adjustingItem.size] || 0;
+            const currentStock = getActiveAdjustStock();
             if (currentStock < qty) {
                 return;
             }
@@ -272,6 +280,18 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
     onAddProduct([newProduct]);
   };
 
+  const isValidTransaction = () => {
+    if (!adjustingItem) return false;
+    const qty = typeof adjustQty === 'string' ? parseInt(adjustQty) : adjustQty;
+    
+    if (isNaN(qty) || qty <= 0) return false;
+
+    if (adjustingItem.type === 'OUT') {
+        return getActiveAdjustStock() >= qty;
+    }
+    return true;
+  };
+
   // Helper to Render the Modal Content
   const renderGroupContent = () => {
     if (!selectedGroup || selectedGroup.length === 0) return <div className="p-4 text-center text-gray-500">Imagem sem produtos associados.</div>;
@@ -303,12 +323,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                 if (isAdmin && hideZeroStock && totalStockInColor === 0) {
                     return null;
                 }
-                
-                // PUBLIC CATALOG: Never hide whole color block unless completely zero (user preference override: show gray boxes)
-                // Actually, user said "quando não tiver mais cor na referência... não ia aparecer... porém na tela de estoque aparece a grade com cor 0".
-                // Later said: "só corrige mesmo quando não tiver mais itens no tamanho permanecer com 0 de estoque até zerar totalmente" -> meaning show 0.
-                
-                // So we render it.
 
                 if (gridEditingColorKey === colorKey) {
                    return (
@@ -399,6 +413,12 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                                              <div className="flex gap-2 mt-1">
                                                 <button onClick={() => startEditingColor(colorKey, productsInColor)} className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-0.5 rounded flex items-center gap-1"><Edit2 size={10} /> Editar Cor</button>
                                                 <button onClick={() => startGridEditing(colorKey, productsInColor)} className="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded flex items-center gap-1 font-bold border border-indigo-100"><Grid3X3 size={10} /> Gerenciar Grade</button>
+                                                <button 
+                                                    onClick={() => setShowRefDetailsForColor(showRefDetailsForColor === colorKey ? null : colorKey)}
+                                                    className={`text-[10px] px-2 py-0.5 rounded flex items-center gap-1 border ${showRefDetailsForColor === colorKey ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-gray-50 text-gray-500 border-gray-100'}`}
+                                                >
+                                                    <Info size={10} /> {showRefDetailsForColor === colorKey ? 'Ocultar Refs' : 'Ver Refs'}
+                                                </button>
                                                 <button onClick={() => deleteColorGroup(productsInColor)} className="text-[10px] bg-red-50 hover:bg-red-100 text-red-600 px-2 py-0.5 rounded flex items-center gap-1"><Trash2 size={10} /> Excluir</button>
                                             </div>
                                         )}
@@ -406,61 +426,55 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                                 </div>
                             )}
 
-                            {/* References List */}
-                            <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
-                                <span className="text-[10px] uppercase font-bold text-gray-400">Referências nesta cor</span>
-                                <div className="flex flex-col gap-1 w-full sm:w-auto">
-                                    {productsInColor.map(p => (
-                                        <div key={p.id} className="flex items-center justify-between sm:justify-end gap-2 bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                                            
-                                            {editingProduct?.id === p.id ? (
-                                                <div className="flex items-center gap-1 animate-in fade-in">
-                                                    <input 
-                                                        value={editProductForm.reference}
-                                                        onChange={e => setEditProductForm({...editProductForm, reference: e.target.value})}
-                                                        className="w-16 p-1 text-xs border border-gray-300 bg-white rounded text-gray-900 outline-none"
-                                                        placeholder="Ref"
-                                                    />
-                                                     <input 
-                                                        value={editProductForm.name}
-                                                        onChange={e => setEditProductForm({...editProductForm, name: e.target.value})}
-                                                        className="w-24 p-1 text-xs border border-gray-300 bg-white rounded text-gray-900 outline-none"
-                                                        placeholder="Nome"
-                                                    />
-                                                    <input 
-                                                        value={editProductForm.price}
-                                                        onChange={e => setEditProductForm({...editProductForm, price: e.target.value})}
-                                                        className="w-16 p-1 text-xs border border-gray-300 bg-white rounded text-gray-900 outline-none"
-                                                        placeholder="R$"
-                                                        type="number"
-                                                    />
-                                                    <button onClick={saveEditingProduct} className="text-green-600 p-1 hover:bg-green-50 rounded"><Save size={12}/></button>
-                                                    <button onClick={() => setEditingProduct(null)} className="text-gray-400 p-1 hover:bg-gray-200 rounded"><X size={12}/></button>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <span className="text-xs font-mono font-medium text-gray-700">{p.reference}</span>
-                                                    <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
-                                                        {getGradeLabel(p.stocks)}
-                                                    </span>
-                                                    {p.price && (
-                                                        <span className="text-xs font-bold text-green-600">R$ {p.price.toFixed(2)}</span>
-                                                    )}
+                            {/* References List - HIDDEN BY DEFAULT to satisfy 'show once' requirement */}
+                            {(showRefDetailsForColor === colorKey || !isAdmin) && (
+                                <div className={`flex flex-col items-end gap-2 w-full sm:w-auto ${!isAdmin ? 'hidden' : ''}`}>
+                                    {showRefDetailsForColor === colorKey && (
+                                        <div className="flex flex-col gap-1 w-full sm:w-auto animate-in slide-in-from-top-2 fade-in duration-200">
+                                            {productsInColor.map(p => (
+                                                <div key={p.id} className="flex items-center justify-between sm:justify-end gap-2 bg-gray-50 px-2 py-1 rounded border border-gray-100">
                                                     
-                                                    {isAdmin && (
-                                                        <div className="flex gap-1 ml-2 border-l pl-2 border-gray-200">
-                                                            <button onClick={() => startEditingProduct(p)} className="text-blue-400 hover:text-blue-600 p-0.5"><Edit2 size={10} /></button>
-                                                            {productsInColor.length > 1 && (
-                                                                <button onClick={() => deleteSingleProduct(p)} className="text-gray-300 hover:text-red-500 p-0.5"><XCircle size={10} /></button>
-                                                            )}
+                                                    {editingProduct?.id === p.id ? (
+                                                        <div className="flex items-center gap-1">
+                                                            <input 
+                                                                value={editProductForm.reference}
+                                                                onChange={e => setEditProductForm({...editProductForm, reference: e.target.value})}
+                                                                className="w-16 p-1 text-xs border border-gray-300 bg-white rounded text-gray-900 outline-none"
+                                                                placeholder="Ref"
+                                                            />
+                                                            <input 
+                                                                value={editProductForm.price}
+                                                                onChange={e => setEditProductForm({...editProductForm, price: e.target.value})}
+                                                                className="w-16 p-1 text-xs border border-gray-300 bg-white rounded text-gray-900 outline-none"
+                                                                placeholder="R$"
+                                                                type="number"
+                                                            />
+                                                            <button onClick={saveEditingProduct} className="text-green-600 p-1 hover:bg-green-50 rounded"><Save size={12}/></button>
+                                                            <button onClick={() => setEditingProduct(null)} className="text-gray-400 p-1 hover:bg-gray-200 rounded"><X size={12}/></button>
                                                         </div>
+                                                    ) : (
+                                                        <>
+                                                            <span className="text-xs font-mono font-medium text-gray-700">{p.reference}</span>
+                                                            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
+                                                                {getGradeLabel(p.stocks)}
+                                                            </span>
+                                                            {p.price && (
+                                                                <span className="text-xs font-bold text-green-600">R$ {p.price.toFixed(2)}</span>
+                                                            )}
+                                                            
+                                                            {isAdmin && (
+                                                                <div className="flex gap-1 ml-2 border-l pl-2 border-gray-200">
+                                                                    <button onClick={() => startEditingProduct(p)} className="text-blue-400 hover:text-blue-600 p-0.5"><Edit2 size={10} /></button>
+                                                                </div>
+                                                            )}
+                                                        </>
                                                     )}
-                                                </>
-                                            )}
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
-                            </div>
+                            )}
                         </div>
 
                         {/* Merged Stock Grid */}
@@ -468,8 +482,6 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                             {SIZES.map(size => {
                                 const qty = mergedStocks[size] || 0;
                                 const hasStock = qty > 0;
-                                
-                                // CATALOG VIEW: Show as gray box if 0. Only hide if Admin hides it.
                                 
                                 return (
                                     <div key={size} className={`flex flex-col rounded border overflow-hidden ${hasStock ? 'bg-white border-gray-200 shadow-sm' : 'bg-gray-100 border-gray-200 opacity-60'}`}>
@@ -499,21 +511,19 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
     );
   };
 
-  const getActiveAdjustStock = () => {
-      if (!adjustingItem) return 0;
-      const target = adjustingItem.candidates.find(p => p.id === adjustingItem.selectedProductId);
-      return target?.stocks[adjustingItem.size] || 0;
-  }
-
-  const isValidTransaction = () => {
-      if (!adjustingItem) return false;
-      const val = typeof adjustQty === 'string' ? parseInt(adjustQty) : adjustQty;
-      if (isNaN(val) || val <= 0) return false;
-      if (adjustingItem.type === 'OUT') {
-          return val <= getActiveAdjustStock();
-      }
-      return true;
-  }
+  const getUniqueReferencesInfo = (group: Product[]) => {
+      const uniqueMap = new Map();
+      group.forEach(p => {
+          if (!uniqueMap.has(p.reference)) {
+              uniqueMap.set(p.reference, { 
+                  ref: p.reference, 
+                  grade: getGradeLabel(p.stocks), 
+                  price: p.price 
+              });
+          }
+      });
+      return Array.from(uniqueMap.values());
+  };
 
   return (
     <div className="space-y-6">
@@ -614,15 +624,26 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
               </div>
 
               <div className="flex-1 flex flex-col h-full overflow-hidden">
-                 <div className="p-6 border-b flex justify-between items-start bg-white z-10 shadow-sm">
-                    <div>
+                 <div className="p-6 border-b bg-white z-10 shadow-sm space-y-3">
+                    <div className="flex justify-between items-start">
                         <h2 className="text-2xl font-bold text-gray-800">{selectedGroup[0].name.split('-')[0]}</h2>
+                        <button onClick={() => setSelectedImageKey(null)} className="text-gray-400 hover:text-gray-600 hidden md:block hover:bg-gray-100 p-1 rounded-full transition-colors"><X size={24} /></button>
                     </div>
-                    <button onClick={() => setSelectedImageKey(null)} className="text-gray-400 hover:text-gray-600 hidden md:block hover:bg-gray-100 p-1 rounded-full transition-colors"><X size={24} /></button>
+                    
+                    {/* GLOBAL REFERENCES HEADER - SHOWS ONCE */}
+                    <div className="flex flex-wrap gap-2">
+                        {getUniqueReferencesInfo(selectedGroup).map((info: any) => (
+                             <div key={info.ref} className="bg-indigo-50 border border-indigo-100 rounded-md px-3 py-1.5 flex items-center gap-2">
+                                <span className="font-mono font-bold text-indigo-700">{info.ref}</span>
+                                <span className="text-xs text-indigo-500 bg-white px-1.5 py-0.5 rounded border border-indigo-100">{info.grade}</span>
+                                {info.price && <span className="text-sm font-bold text-green-600 border-l border-indigo-200 pl-2">R$ {info.price.toFixed(2)}</span>}
+                             </div>
+                        ))}
+                    </div>
                  </div>
 
                  {isAdmin && (
-                     <div className="bg-indigo-50 px-6 py-2 border-b flex justify-end">
+                     <div className="bg-gray-50 px-6 py-2 border-b flex justify-end">
                          <button 
                             onClick={() => setHideZeroStock(!hideZeroStock)}
                             className="flex items-center gap-2 text-xs font-bold text-indigo-700 hover:text-indigo-900"
@@ -686,11 +707,15 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                         onChange={e => setAdjustingItem({...adjustingItem, selectedProductId: e.target.value})}
                         className="w-full p-2.5 border border-indigo-200 bg-white rounded-lg text-sm text-gray-900 font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
                     >
-                        {adjustingItem.candidates.map(p => (
-                            <option key={p.id} value={p.id}>
-                                {p.reference} - {getGradeLabel(p.stocks)} ({p.stocks[adjustingItem.size] || 0} un.)
-                            </option>
-                        ))}
+                        {adjustingItem.candidates.map(candidate => {
+                            // Find the fresh product data to display current stock in the dropdown
+                            const freshProd = products.find(p => p.id === candidate.id) || candidate;
+                            return (
+                                <option key={freshProd.id} value={freshProd.id}>
+                                    {freshProd.reference} - {getGradeLabel(freshProd.stocks)} ({freshProd.stocks[adjustingItem.size] || 0} un.)
+                                </option>
+                            );
+                        })}
                     </select>
                 </div>
 
