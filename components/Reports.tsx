@@ -77,25 +77,25 @@ const Reports: React.FC<ReportsProps> = ({ products, transactions }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border p-6">
+        <div className="bg-white rounded-xl shadow-sm border p-4 md:p-6">
             <h3 className="font-bold text-lg text-gray-800 mb-4 flex items-center gap-2">
                 <AlertTriangle className="text-orange-500"/> Alerta de Estoque Baixo
             </h3>
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
+            <div className="overflow-x-auto -mx-4 md:mx-0">
+                <table className="w-full text-sm text-left min-w-[300px]">
                     <thead className="bg-gray-50 text-gray-500">
                         <tr>
-                            <th className="p-3 rounded-l-lg">Produto</th>
+                            <th className="p-3 pl-4 rounded-l-lg">Produto</th>
                             <th className="p-3">Cor</th>
-                            <th className="p-3 rounded-r-lg text-right">Qtd</th>
+                            <th className="p-3 pr-4 rounded-r-lg text-right">Qtd</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y">
                         {lowStockItems.slice(0, 10).map(p => (
                             <tr key={p.id}>
-                                <td className="p-3 font-medium">{p.reference} - {p.name}</td>
+                                <td className="p-3 pl-4 font-medium">{p.reference} - {p.name}</td>
                                 <td className="p-3">{p.color}</td>
-                                <td className="p-3 text-right font-bold text-orange-600">{p.totalStock}</td>
+                                <td className="p-3 pr-4 text-right font-bold text-orange-600">{p.totalStock}</td>
                             </tr>
                         ))}
                         {lowStockItems.length === 0 && (
@@ -106,28 +106,28 @@ const Reports: React.FC<ReportsProps> = ({ products, transactions }) => {
             </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border p-6">
+        <div className="bg-white rounded-xl shadow-sm border p-4 md:p-6">
              <h3 className="font-bold text-lg text-gray-800 mb-4">Itens Sem Estoque</h3>
-             <div className="overflow-x-auto max-h-80 overflow-y-auto">
-                <table className="w-full text-sm text-left">
+             <div className="overflow-x-auto -mx-4 md:mx-0 max-h-80 overflow-y-auto">
+                <table className="w-full text-sm text-left min-w-[300px]">
                     <thead className="bg-gray-50 text-gray-500">
                         <tr>
-                            <th className="p-3 rounded-l-lg">Referência</th>
+                            <th className="p-3 pl-4 rounded-l-lg">Referência</th>
                             <th className="p-3">Cor</th>
-                            <th className="p-3 rounded-r-lg">Status</th>
+                            <th className="p-3 pr-4 rounded-r-lg">Status</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y">
                         {outOfStockItems.slice(0, 20).map(p => (
                             <tr key={p.id}>
-                                <td className="p-3 font-mono text-gray-900 font-medium">{p.reference}</td>
+                                <td className="p-3 pl-4 font-mono text-gray-900 font-medium">{p.reference}</td>
                                 <td className="p-3">
                                     <span className="flex items-center gap-2 text-gray-700">
-                                        <div className="w-3 h-3 rounded-full border" style={{backgroundColor: p.colorHex}}></div>
+                                        <div className="w-3 h-3 rounded-full border shrink-0" style={{backgroundColor: p.colorHex}}></div>
                                         {p.color}
                                     </span>
                                 </td>
-                                <td className="p-3"><span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">Esgotado</span></td>
+                                <td className="p-3 pr-4"><span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">Esgotado</span></td>
                             </tr>
                         ))}
                          {outOfStockItems.length === 0 && (

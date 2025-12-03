@@ -340,56 +340,58 @@ const App = () => {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Histórico de Movimentações</h2>
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="p-4 text-sm font-semibold text-gray-600">Data</th>
-              <th className="p-4 text-sm font-semibold text-gray-600">Produto</th>
-              <th className="p-4 text-sm font-semibold text-gray-600">Tam.</th>
-              <th className="p-4 text-sm font-semibold text-gray-600">Tipo</th>
-              <th className="p-4 text-sm font-semibold text-gray-600">Detalhes</th>
-              <th className="p-4 text-sm font-semibold text-gray-600">Qtd</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {transactions.map(t => (
-              <tr key={t.id} className="hover:bg-gray-50">
-                <td className="p-4 text-sm text-gray-600">
-                  {new Date(t.date).toLocaleDateString()} {new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                </td>
-                <td className="p-4 font-medium text-gray-900">{t.productName}</td>
-                <td className="p-4">
-                     <span className="text-xs font-bold bg-gray-100 px-2 py-1 rounded">{t.size || 'N/A'}</span>
-                </td>
-                <td className="p-4">
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${
-                    t.type === 'IN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {t.type === 'IN' ? <ArrowUpRight size={12} /> : <ArrowDownLeft size={12} />}
-                    {t.type === 'IN' ? 'Entrada' : 'Saída'}
-                  </span>
-                </td>
-                <td className="p-4 text-sm text-gray-600">
-                  {t.customerName ? (
-                    <span className="flex items-center gap-1 text-indigo-600">
-                      <User size={14} />
-                      {t.customerName}
-                    </span>
-                  ) : '-'}
-                </td>
-                <td className="p-4 font-bold text-gray-800">{t.quantity}</td>
-              </tr>
-            ))}
-            {transactions.length === 0 && (
+        <div className="overflow-x-auto">
+            <table className="w-full text-left min-w-[600px]">
+            <thead className="bg-gray-50 border-b">
                 <tr>
-                    <td colSpan={6} className="p-8 text-center text-gray-500">
-                        <History className="mx-auto mb-2 opacity-50" />
-                        Nenhuma movimentação registrada.
-                    </td>
+                <th className="p-4 text-sm font-semibold text-gray-600">Data</th>
+                <th className="p-4 text-sm font-semibold text-gray-600">Produto</th>
+                <th className="p-4 text-sm font-semibold text-gray-600">Tam.</th>
+                <th className="p-4 text-sm font-semibold text-gray-600">Tipo</th>
+                <th className="p-4 text-sm font-semibold text-gray-600">Detalhes</th>
+                <th className="p-4 text-sm font-semibold text-gray-600">Qtd</th>
                 </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y">
+                {transactions.map(t => (
+                <tr key={t.id} className="hover:bg-gray-50">
+                    <td className="p-4 text-sm text-gray-600">
+                    {new Date(t.date).toLocaleDateString()} <span className="text-xs text-gray-400 block sm:inline">{new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    </td>
+                    <td className="p-4 font-medium text-gray-900">{t.productName}</td>
+                    <td className="p-4">
+                        <span className="text-xs font-bold bg-gray-100 px-2 py-1 rounded">{t.size || 'N/A'}</span>
+                    </td>
+                    <td className="p-4">
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${
+                        t.type === 'IN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                        {t.type === 'IN' ? <ArrowUpRight size={12} /> : <ArrowDownLeft size={12} />}
+                        {t.type === 'IN' ? 'Ent' : 'Sai'}
+                    </span>
+                    </td>
+                    <td className="p-4 text-sm text-gray-600">
+                    {t.customerName ? (
+                        <span className="flex items-center gap-1 text-indigo-600">
+                        <User size={14} />
+                        {t.customerName}
+                        </span>
+                    ) : '-'}
+                    </td>
+                    <td className="p-4 font-bold text-gray-800">{t.quantity}</td>
+                </tr>
+                ))}
+                {transactions.length === 0 && (
+                    <tr>
+                        <td colSpan={6} className="p-8 text-center text-gray-500">
+                            <History className="mx-auto mb-2 opacity-50" />
+                            Nenhuma movimentação registrada.
+                        </td>
+                    </tr>
+                )}
+            </tbody>
+            </table>
+        </div>
       </div>
     </div>
   );

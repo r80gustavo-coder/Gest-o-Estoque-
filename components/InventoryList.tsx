@@ -463,18 +463,18 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                            <h4 className="font-bold text-indigo-700 flex items-center gap-2">
                              <Grid3X3 size={20} /> Editando Grade: {first.color}
                            </h4>
-                           <div className="flex gap-2">
+                           <div className="flex gap-2 flex-col sm:flex-row">
                              <button onClick={() => setGridEditingColorKey(null)} className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">Cancelar</button>
                              <button onClick={() => saveGridEditing(productsInColor)} className="px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 font-bold">Salvar Alterações</button>
                            </div>
                         </div>
                         <div className="overflow-x-auto">
-                          <table className="w-full text-sm border-collapse">
+                          <table className="w-full text-sm border-collapse min-w-[300px]">
                             <thead>
                               <tr>
-                                <th className="text-left p-2 border-b bg-gray-50 text-gray-500 font-medium">Referência</th>
+                                <th className="text-left p-2 border-b bg-gray-50 text-gray-500 font-medium">Ref</th>
                                 {SIZES.map(s => (
-                                  <th key={s} className="p-2 border-b bg-gray-50 text-center font-bold text-gray-700 w-16">{s}</th>
+                                  <th key={s} className="p-2 border-b bg-gray-50 text-center font-bold text-gray-700 w-12">{s}</th>
                                 ))}
                               </tr>
                             </thead>
@@ -533,23 +533,23 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                                     </div>
                                 </div>
                             ) : (
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 w-full">
                                     {first.colorHex && (
                                         <div className="w-10 h-10 rounded-full border shadow-sm shrink-0" style={{ backgroundColor: first.colorHex }} />
                                     )}
-                                    <div>
+                                    <div className="flex-1">
                                         <h4 className="font-bold text-gray-800 text-lg">{first.color}</h4>
                                         {isAdmin && (
-                                             <div className="flex gap-2 mt-1">
-                                                <button onClick={() => startEditingColor(colorKey, productsInColor)} className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-0.5 rounded flex items-center gap-1"><Edit2 size={10} /> Editar Cor</button>
-                                                <button onClick={() => startGridEditing(colorKey, productsInColor)} className="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded flex items-center gap-1 font-bold border border-indigo-100"><Grid3X3 size={10} /> Gerenciar Grade</button>
+                                             <div className="flex gap-2 mt-1 flex-wrap">
+                                                <button onClick={() => startEditingColor(colorKey, productsInColor)} className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 md:px-2 md:py-0.5 rounded flex items-center gap-1"><Edit2 size={12} /> <span className="hidden md:inline">Editar</span></button>
+                                                <button onClick={() => startGridEditing(colorKey, productsInColor)} className="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-1.5 md:px-2 md:py-0.5 rounded flex items-center gap-1 font-bold border border-indigo-100"><Grid3X3 size={12} /> <span className="hidden md:inline">Grade</span></button>
                                                 <button 
                                                     onClick={() => setShowRefDetailsForColor(showRefDetailsForColor === colorKey ? null : colorKey)}
-                                                    className={`text-[10px] px-2 py-0.5 rounded flex items-center gap-1 border ${showRefDetailsForColor === colorKey ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-gray-50 text-gray-500 border-gray-100'}`}
+                                                    className={`text-[10px] px-3 py-1.5 md:px-2 md:py-0.5 rounded flex items-center gap-1 border ${showRefDetailsForColor === colorKey ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-gray-50 text-gray-500 border-gray-100'}`}
                                                 >
-                                                    <Info size={10} /> {showRefDetailsForColor === colorKey ? 'Ocultar Refs' : 'Ver Refs'}
+                                                    <Info size={12} /> {showRefDetailsForColor === colorKey ? 'Ocultar' : 'Refs'}
                                                 </button>
-                                                <button onClick={() => deleteColorGroup(productsInColor)} className="text-[10px] bg-red-50 hover:bg-red-100 text-red-600 px-2 py-0.5 rounded flex items-center gap-1"><Trash2 size={10} /> Excluir</button>
+                                                <button onClick={() => deleteColorGroup(productsInColor)} className="text-[10px] bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 md:px-2 md:py-0.5 rounded flex items-center gap-1"><Trash2 size={12} /></button>
                                             </div>
                                         )}
                                     </div>
@@ -623,9 +623,9 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                                             </span>
 
                                             {isAdmin && (
-                                                <div className="absolute inset-0 bg-white flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => openAdjustment(productsInColor, size, 'OUT')} className="w-6 h-6 bg-red-100 text-red-600 rounded flex items-center justify-center hover:bg-red-200"><Minus size={12}/></button>
-                                                    <button onClick={() => openAdjustment(productsInColor, size, 'IN')} className="w-6 h-6 bg-green-100 text-green-600 rounded flex items-center justify-center hover:bg-green-200"><Plus size={12}/></button>
+                                                <div className="absolute inset-0 bg-white flex items-center justify-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => openAdjustment(productsInColor, size, 'OUT')} className="w-8 h-8 md:w-6 md:h-6 bg-red-100 text-red-600 rounded flex items-center justify-center hover:bg-red-200 shadow-sm border border-red-200"><Minus size={14}/></button>
+                                                    <button onClick={() => openAdjustment(productsInColor, size, 'IN')} className="w-8 h-8 md:w-6 md:h-6 bg-green-100 text-green-600 rounded flex items-center justify-center hover:bg-green-200 shadow-sm border border-green-200"><Plus size={14}/></button>
                                                 </div>
                                             )}
                                         </div>
@@ -658,7 +658,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {productGroups.map((group, idx) => {
           const mainProduct = group[0];
           const totalStockInGroup = group.reduce((acc, p) => acc + p.totalStock, 0);
@@ -727,34 +727,34 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
       )}
 
       {selectedGroup && selectedGroup.length > 0 && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4">
-           <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center md:p-4">
+           <div className="bg-white md:rounded-xl w-full max-w-4xl h-full md:max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in fade-in zoom-in-95 duration-200">
               
-              <div className="w-full md:w-1/3 bg-gray-100 relative md:h-auto h-64 shrink-0 border-r">
+              <div className="w-full md:w-1/3 bg-gray-100 relative h-64 md:h-auto shrink-0 border-r">
                   <img src={selectedGroup[0].imageUrl} alt="Product" className="w-full h-full object-contain bg-gray-50" />
                    <button onClick={() => setSelectedImageKey(null)} className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full md:hidden"><X size={20} /></button>
               </div>
 
               <div className="flex-1 flex flex-col h-full overflow-hidden">
-                 <div className="p-6 border-b bg-white z-10 shadow-sm space-y-3">
+                 <div className="p-4 md:p-6 border-b bg-white z-10 shadow-sm space-y-3 shrink-0">
                     <div className="flex justify-between items-start">
-                        <h2 className="text-2xl font-bold text-gray-800">{selectedGroup[0].name.split('-')[0]}</h2>
+                        <h2 className="text-xl md:text-2xl font-bold text-gray-800">{selectedGroup[0].name.split('-')[0]}</h2>
                         <button onClick={() => setSelectedImageKey(null)} className="text-gray-400 hover:text-gray-600 hidden md:block hover:bg-gray-100 p-1 rounded-full transition-colors"><X size={24} /></button>
                     </div>
                     
                     <div className="flex flex-wrap gap-2">
                         {getUniqueReferencesInfo(selectedGroup).map((info: any) => (
-                             <div key={info.ref} className="bg-indigo-50 border border-indigo-100 rounded-md px-3 py-1.5 flex items-center gap-2">
-                                <span className="font-mono font-bold text-indigo-700">{info.ref}</span>
-                                <span className="text-xs text-indigo-500 bg-white px-1.5 py-0.5 rounded border border-indigo-100">{info.grade}</span>
-                                {info.price && <span className="text-sm font-bold text-green-600 border-l border-indigo-200 pl-2">R$ {info.price.toFixed(2)}</span>}
+                             <div key={info.ref} className="bg-indigo-50 border border-indigo-100 rounded-md px-2 py-1 md:px-3 md:py-1.5 flex items-center gap-2">
+                                <span className="font-mono font-bold text-indigo-700 text-xs md:text-sm">{info.ref}</span>
+                                <span className="text-[10px] md:text-xs text-indigo-500 bg-white px-1.5 py-0.5 rounded border border-indigo-100">{info.grade}</span>
+                                {info.price && <span className="text-xs md:text-sm font-bold text-green-600 border-l border-indigo-200 pl-2">R$ {info.price.toFixed(2)}</span>}
                              </div>
                         ))}
                     </div>
                  </div>
 
                  {isAdmin && (
-                     <div className="bg-gray-50 px-6 py-2 border-b flex justify-end">
+                     <div className="bg-gray-50 px-4 md:px-6 py-2 border-b flex justify-end">
                          <button 
                             onClick={() => setHideZeroStock(!hideZeroStock)}
                             className="flex items-center gap-2 text-xs font-bold text-indigo-700 hover:text-indigo-900"
@@ -765,15 +765,15 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                      </div>
                  )}
 
-                 <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+                 <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50 pb-20 md:pb-6">
                     {renderGroupContent()}
 
                     {isAdmin && (
-                        <div className="mt-8 space-y-3">
+                        <div className="mt-8 space-y-3 pb-8">
                             <h4 className="text-sm font-bold text-gray-500 uppercase">Expandir Produto</h4>
                             
                             {!isAddingColor && !isAddingRef ? (
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <button
                                         onClick={() => setIsAddingColor(true)}
                                         className="py-3 px-4 border border-gray-300 bg-white rounded-xl text-gray-600 font-medium hover:border-indigo-400 hover:text-indigo-600 hover:shadow-sm transition-all flex items-center justify-center gap-2"
@@ -814,7 +814,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
 
                                             <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
                                                 <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Aplicar nas referências:</label>
-                                                <div className="grid grid-cols-2 gap-2">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
                                                     {getUniqueReferencesInfo(selectedGroup).map((info: any) => (
                                                         <label key={info.ref} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer bg-white p-2 rounded border border-gray-200 hover:border-indigo-300">
                                                             <div 
@@ -856,7 +856,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                                                 <h5 className="font-bold text-indigo-700 flex items-center gap-2"><Layers size={18}/> Nova Referência (para todas as cores)</h5>
                                                 <button onClick={() => setIsAddingRef(false)} className="text-gray-400 hover:text-gray-600"><X size={18}/></button>
                                             </div>
-                                            <div className="grid grid-cols-3 gap-3">
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                                 <input 
                                                     type="text" 
                                                     placeholder="Código (Ex: 645)" 
@@ -901,11 +901,11 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
 
       {adjustingItem && (
         <div 
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
             onClick={() => setAdjustingItem(null)}
         >
             <div 
-                className="bg-white rounded-xl shadow-2xl border p-6 w-96 animate-in zoom-in-95 duration-200 relative"
+                className="bg-white rounded-xl shadow-2xl border p-6 w-full max-w-sm animate-in zoom-in-95 duration-200 relative"
                 onClick={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
                 onMouseUp={(e) => e.stopPropagation()}
@@ -913,9 +913,9 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                 <div className="flex justify-between items-center mb-4 border-b pb-3">
                     <h3 className={`font-bold text-lg flex items-center gap-2 ${adjustingItem.type === 'IN' ? 'text-green-700' : 'text-red-700'}`}>
                         {adjustingItem.type === 'IN' ? <Plus size={20}/> : <Minus size={20}/>}
-                        {adjustingItem.type === 'IN' ? 'Entrada de Estoque' : 'Baixa de Estoque'}
+                        {adjustingItem.type === 'IN' ? 'Entrada' : 'Baixa'}
                     </h3>
-                    <button onClick={() => setAdjustingItem(null)} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100" type="button"><XCircle size={20} /></button>
+                    <button onClick={() => setAdjustingItem(null)} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100" type="button"><XCircle size={24} /></button>
                 </div>
                 
                 <div className="bg-gray-50 p-3 rounded-lg mb-4 text-sm text-gray-700">
@@ -930,7 +930,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                     <select
                         value={adjustingItem.selectedProductId}
                         onChange={e => setAdjustingItem({...adjustingItem!, selectedProductId: e.target.value})}
-                        className="w-full p-2.5 border border-indigo-200 bg-white rounded-lg text-sm text-gray-900 font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                        className="w-full p-3 border border-indigo-200 bg-white rounded-lg text-sm text-gray-900 font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
                     >
                         {adjustingItem.candidates.map(candidate => {
                             const freshProd = products.find(p => p.id === candidate.id) || candidate;
@@ -938,7 +938,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
 
                             return (
                                 <option key={freshProd.id} value={freshProd.id}>
-                                    Ref: {freshProd.reference} {isDuplicate ? '(Duplicado - ID:' + freshProd.id.slice(0,4) + ')' : ''} (Disponível: {freshProd.stocks[adjustingItem!.size] || 0})
+                                    Ref: {freshProd.reference} {isDuplicate ? '(Duplicado - ID:' + freshProd.id.slice(0,4) + ')' : ''} (Disp: {freshProd.stocks[adjustingItem!.size] || 0})
                                 </option>
                             );
                         })}
@@ -952,9 +952,9 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                             const val = typeof adjustQty === 'string' ? parseInt(adjustQty) || 0 : adjustQty;
                             setAdjustQty(Math.max(1, val - 1));
                         }}
-                        className="w-10 h-10 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 flex items-center justify-center transition-colors"
+                        className="w-12 h-12 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 flex items-center justify-center transition-colors"
                     >
-                        <Minus size={20} />
+                        <Minus size={24} />
                     </button>
                     
                     <input 
@@ -971,9 +971,9 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                              const val = typeof adjustQty === 'string' ? parseInt(adjustQty) || 0 : adjustQty;
                              setAdjustQty(val + 1);
                          }}
-                         className="w-10 h-10 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 flex items-center justify-center transition-colors"
+                         className="w-12 h-12 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 flex items-center justify-center transition-colors"
                     >
-                        <Plus size={20} />
+                        <Plus size={24} />
                     </button>
                 </div>
 
@@ -1012,7 +1012,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ products, customers, onUp
                     type="button"
                     onClick={handleAdjustSubmit}
                     disabled={!isValidTransaction()}
-                    className={`w-full py-3 rounded-lg text-white font-bold shadow-lg transform active:scale-95 transition-all ${
+                    className={`w-full py-4 rounded-lg text-white font-bold shadow-lg transform active:scale-95 transition-all text-lg ${
                         isValidTransaction() 
                         ? (adjustingItem.type === 'IN' ? 'bg-gradient-to-r from-green-500 to-emerald-600' : 'bg-gradient-to-r from-red-500 to-rose-600')
                         : 'bg-gray-300 cursor-not-allowed opacity-70'
